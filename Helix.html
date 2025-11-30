@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+<title>Helix: Mobile</title>
+<style>
+  /* --- GLOBAL STYLES --- */
+  body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 0; margin: 0; overflow: hidden; height: 100vh; }
+  
+  /* SETUP SCREEN */
+  #setup { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; padding: 20px; text-align: center; z-index: 100; position: relative; background: #000; }
+  #key-input { background: #111; color: #fff; border: 1px solid #333; padding: 15px; width: 90%; margin-bottom: 20px; font-family: monospace; font-size: 16px; text-align: center; border-radius: 8px; }
+  
+  /* MAIN APP LAYOUT (MOBILE OPTIMIZED) */
+  #app { display: none; flex-direction: column; width: 100%; height: 100vh; }
+
+  /* TOP PANEL: 3D SCENE (40% Height) */
+  #scene {
+    flex: 4; /* Takes 40% of space */
+    position: relative;
+    display: flex; justify-content: center; align-items: center;
+    background: radial-gradient(circle at center, #111 0%, #000 90%);
+    overflow: hidden;
+  }
+
+  /* BOTTOM PANEL: UI (60% Height) */
+  #ui-layer {
+    flex: 6; /* Takes 60% of space */
+    display: flex; flex-direction: column; 
+    padding: 15px; box-sizing: border-box;
+    background: #0a0a0a; border-top: 1px solid #333;
+    gap: 10px;
+  }
+
+  /* CHAT HISTORY */
+  #chat-history { 
+    flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; 
+    gap: 15px; padding-bottom: 10px; scrollbar-width: none; /* Hide scrollbar */
+  }
+  
+  /* MESSAGE BUBBLES */
+  .message { padding: 10px 15px; border-radius: 12px; font-size: 16px; line-height: 1.5; max-width: 95%; }
+  .user-msg { background: #222; color: #eee; align-self: flex-end; border-bottom-right-radius: 2px; }
+  .ai-msg { background: rgba(0, 255, 255, 0.1); color: #fff; align-self: flex-start; border-left: 3px solid #00ffff; border-bottom-left-radius: 2px; }
+  
+  /* HELIX VISUALS */
+  #singularity { position: relative; width: 200px; height: 200px; transform-style: preserve-3d; animation: floatAnim 6s ease-in-out infinite; }
+  #core { position: absolute; top: 50%; left: 50%; width: 80px; height: 80px; transform: translate(-50%, -50%); border-radius: 50%; background: white; z-index: 2; transition: all 0.5s ease; }
+  .ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; background: transparent; pointer-events: none; transition: border-color 0.5s ease, box-shadow 0.5s ease; }
+  #ring1 { width: 120px; height: 120px; border: 3px solid transparent; border-top: 3px solid #ff00ff; border-bottom: 3px solid #ff00ff; box-shadow: 0 0 10px #ff00ff; animation: gyroSpin1 2s linear infinite; }
+  #ring2 { width: 180px; height: 180px; border: 2px solid transparent; border-left: 2px solid #00ffff; border-right: 2px solid #00ffff; box-shadow: 0 0 10px #00ffff; animation: gyroSpin2 5s linear infinite; }
+  #ring3 { width: 240px; height: 240px; border: 1px dashed rgba(255, 255, 255, 0.4); animation: gyroSpin3 15s linear infinite; }
+  
+  /* Animations */
+  @keyframes gyroSpin1 { 0% { transform: translate(-50%, -50%) rotateX(60deg) rotateY(0deg) rotateZ(0deg); } 100% { transform: translate(-50%, -50%) rotateX(60deg) rotateY(0deg) rotateZ(360deg); } }
+  @keyframes gyroSpin2 { 0% { transform: translate(-50%, -50%) rotateX(0deg) rotateY(60deg) rotateZ(0deg); } 100% { transform: translate(-50%, -50%) rotateX(0deg) rotateY(60deg) rotateZ(-360deg); } }
+  @keyframes gyroSpin3 { 0% { transform: translate(-50%, -50%) rotateX(45deg) rotateY(-45deg) rotateZ(0deg); } 50% { transform: translate(-50%, -50%) rotateX(55deg) rotateY(-35deg) rotateZ(180deg); } 100% { transform: translate(-50%, -50%) rotateX(45deg) rotateY(-45deg) rotateZ(360deg); } }
+  @keyframes floatAnim { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  
+  /* States */
+  .talking #core { background: white !important; box-shadow: 0 0 60px white !important; }
+  .listening #core { background: #00ff00 !important; box-shadow: 0 0 50px #00ff00 !important; }
+
+  /* MODE SWITCHER */
+  #mode-container { display: flex; gap: 10px; margin-bottom: 5px; }
+  .mode-chip { flex: 1; padding: 10px; background: #222; color: #666; text-align: center; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; border: 1px solid #333; }
+  .mode-chip.active { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.4); }
+
+  /* INPUT AREA */
+  #input-row { display: flex; gap: 10px; }
+  #manual-text { flex-grow: 1; background: #222; border: none; color: #fff; padding: 15px; border-radius: 25px; outline: none; font-size: 16px; }
+  #send-btn { width: 50px; background: #333; color: cyan; border: none; border-radius: 50%; font-weight: bold; font-size: 20px; }
+
+  /* BIG MIC BUTTON */
+  #mic-btn { 
+    width: 100%; padding: 20px; margin-top: 5px;
+    background: #111; color: #fff; border: 1px solid #333; 
+    border-radius: 12px; font-size: 18px; font-weight: bold; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all 0.2s; touch-action: manipulation; /* Fixes tap delay */
+  }
+  #mic-btn.active { background: #00ff00; color: black; border-color: #00ff00; box-shadow: 0 0 20px rgba(0, 255, 0, 0.4); }
+
+  /* Code Blocks mobile friendly */
+  pre { margin: 5px 0; padding: 10px; background: #111; border-radius: 6px; overflow-x: auto; font-size: 12px; border-left: 3px solid #00ffff; }
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <h1 style="text-shadow: 0 0 20px cyan; font-family: sans-serif; font-size: 32px;">HELIX MOBILE</h1>
+  <input id="key-input" placeholder="PASTE API KEY HERE">
+  <button onclick="saveKey()" style="padding:15px 30px; background:cyan; border:none; border-radius:30px; font-weight:bold; font-size:16px;">START</button>
+</div>
+
+<div id="app">
+  
+  <div id="scene">
+    <div id="singularity">
+      <div id="ring3" class="ring"></div>
+      <div id="ring2" class="ring"></div>
+      <div id="ring1" class="ring"></div>
+      <div id="core"></div>
+    </div>
+  </div>
+
+  <div id="ui-layer">
+    
+    <div id="mode-container">
+        <div class="mode-chip active" onclick="setMode('python', this)">PYTHON BRAIN</div>
+        <div class="mode-chip" onclick="setMode('web', this)">WEB BRAIN</div>
+    </div>
+
+    <div id="chat-history">
+        <div class="message ai-msg">
+            I am Helix. Tap the button below to speak.
+        </div>
+    </div>
+
+    <div id="input-row">
+        <input type="text" id="manual-text" placeholder="Type here..." onkeydown="checkEnter(event)">
+        <button id="send-btn" onclick="sendText()">➤</button>
+    </div>
+
+    <button id="mic-btn" onclick="toggleMic()">
+        <span>🎙️</span> <span id="mic-text">TAP TO SPEAK</span>
+    </button>
+    
+    <div onclick="resetMemory()" style="text-align:center; font-size:10px; color:#444; padding-top:10px;">RESET MEMORY</div>
+  </div>
+
+</div>
+
+<script>
+// --- CONFIGURATION ---
+const PYTHON_INSTRUCTION = "You are Helix. PYTHON MODE. Chat normally. If asked for code, output markdown ```python.";
+const WEB_INSTRUCTION = "You are Helix. WEB MODE. Chat normally. If asked for app/site, output markdown ```html. Escape HTML entities.";
+
+let currentMode = "python";
+let conversationHistory = [];
+let longTermMemory = localStorage.getItem("helix_memory") || "";
+let apiKey = localStorage.getItem("helix_key_mobile"); 
+let synth = window.speechSynthesis;
+let rec;
+let isMicActive = false;
+let isAiSpeaking = false;
+
+// --- INITIALIZATION ---
+if (apiKey) {
+    document.getElementById('setup').style.display = "none";
+    document.getElementById('app').style.display = "flex";
+}
+function saveKey() {
+    let k = document.getElementById('key-input').value.trim();
+    if(k.length < 5) return alert("Key too short");
+    localStorage.setItem("helix_key_mobile", k);
+    apiKey = k;
+    document.getElementById('setup').style.display = "none";
+    document.getElementById('app').style.display = "flex";
+}
+
+// --- LOGIC ---
+function setMode(mode, btn) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-chip').forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+    conversationHistory = [];
+    appendMessage('ai-msg', `Switched to ${mode.toUpperCase()} Mode.`);
+}
+
+function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.classList.add('message', role === 'user' ? 'user-msg' : 'ai-msg');
+    
+    if (role === 'model') {
+        // Simple code formatter for mobile
+        let parts = text.split(/(```[\s\S]*?```)/g);
+        let finalHTML = "";
+        parts.forEach(part => {
+            if (part.startsWith("```")) {
+                let content = part.replace(/```\w+\n?/, "").replace(/```$/, "");
+                content = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                finalHTML += `<pre>${content}</pre>`;
+            } else {
+                finalHTML += part.replace(/\n/g, "<br>");
+            }
+        });
+        div.innerHTML = finalHTML;
+    } else {
+        div.innerText = text;
+    }
+    
+    const chat = document.getElementById('chat-history');
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function askGemini(txt) {
+    appendMessage('user', txt);
+    
+    // Memory Check
+    if (txt.toLowerCase().startsWith("remember:") || txt.toLowerCase().startsWith("save:")) {
+        longTermMemory += "\n- " + txt.replace(/^(remember:|save:)/i, "").trim();
+        localStorage.setItem("helix_memory", longTermMemory);
+        setTimeout(() => { 
+            let msg = "Memory Updated.";
+            appendMessage('model', msg);
+            speak(msg);
+        }, 500);
+        return;
+    }
+
+    // API Call
+    document.getElementById('scene').classList.add('processing');
+    let instruction = currentMode === 'python' ? PYTHON_INSTRUCTION : WEB_INSTRUCTION;
+    if (longTermMemory) instruction += `\n\nMEMORY:\n${longTermMemory}`;
+
+    conversationHistory.push({ role: "user", parts: [{ text: txt }] });
+
+    try {
+        let r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ contents: conversationHistory, system_instruction: { parts: [{ text: instruction }] } })
+        });
+        let d = await r.json();
+        let ans = d.candidates?.[0]?.content?.parts?.[0]?.text || "Error.";
+        
+        conversationHistory.push({ role: "model", parts: [{ text: ans }] });
+        appendMessage('model', ans);
+        
+        // Speak response (skip code)
+        let cleanText = ans.replace(/```[\s\S]*?```/g, "");
+        if(cleanText.trim().length < 2) cleanText = "Here is the code.";
+        speak(cleanText);
+        
+    } catch(e) {
+        appendMessage('ai-msg', "Error: " + e);
+    }
+    document.getElementById('scene').classList.remove('processing');
+}
+
+function speak(txt) {
+    isAiSpeaking = true;
+    document.getElementById('scene').classList.add('talking');
+    let u = new SpeechSynthesisUtterance(txt);
+    u.onend = () => {
+        isAiSpeaking = false;
+        document.getElementById('scene').classList.remove('talking');
+    };
+    synth.speak(u);
+}
+
+// --- MOBILE MIC LOGIC ---
+function toggleMic() {
+    if (isMicActive) {
+        // Stop
+        if(rec) rec.stop();
+        isMicActive = false;
+        document.getElementById('mic-btn').classList.remove('active');
+        document.getElementById('mic-text').innerText = "TAP TO SPEAK";
+        document.getElementById('scene').classList.remove('listening');
+        return;
+    }
+
+    // Start
+    const SpeechSDK = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechSDK) return alert("Browser does not support Voice.");
+    
+    rec = new SpeechSDK();
+    rec.lang = "en-US";
+    rec.continuous = false; // Auto-stop for mobile stability
+    rec.interimResults = false;
+
+    rec.onstart = () => {
+        isMicActive = true;
+        document.getElementById('mic-btn').classList.add('active');
+        document.getElementById('mic-text').innerText = "LISTENING...";
+        document.getElementById('scene').classList.add('listening');
+    };
+
+    rec.onend = () => {
+        isMicActive = false;
+        document.getElementById('mic-btn').classList.remove('active');
+        document.getElementById('mic-text').innerText = "TAP TO SPEAK";
+        document.getElementById('scene').classList.remove('listening');
+    };
+
+    rec.onresult = (e) => {
+        let txt = e.results[0][0].transcript;
+        if(txt) askGemini(txt);
+    };
+
+    rec.start();
+}
+
+function sendText() {
+    let el = document.getElementById('manual-text');
+    if(el.value.trim()) {
+        askGemini(el.value);
+        el.value = "";
+    }
+}
+function checkEnter(e) { if(e.key === "Enter") sendText(); }
+function resetMemory() { localStorage.removeItem("helix_memory"); location.reload(); }
+</script>
+</body>
+</html>
